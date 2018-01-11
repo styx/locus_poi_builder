@@ -13,7 +13,7 @@ func hasTags(tags map[string]string) bool {
 	return n != 0
 }
 
-func process(decoder *osmpbf.Decoder) {
+func processPbf(decoder *osmpbf.Decoder) {
 	nodes = make(map[int64]*osmpbf.Node)
 	ways = make(map[int64]*osmpbf.Node)
 	relations = make(map[int64]*osmpbf.Relation)

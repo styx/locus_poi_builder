@@ -49,7 +49,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	process(decoder)
+	processPbf(decoder)
 	store(db)
 }
 
