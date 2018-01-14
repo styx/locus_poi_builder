@@ -46,80 +46,26 @@ func subToRoot(n int) int {
 	return 0
 }
 
-// 1	alpine_hut
-// 2	camp_caravan
-// 3	motel
-// 4	hostel
-// 5	hotel
-// 6	guest_house_chalet
-// 7	bank
-// 8	exchange
-// 9	atm
-// 10	post_office
-// 11	post_box
-// 12	info
-// 13	museum
-// 14	cinema
-// 15	theatre
-// 16	castle_ruin_monument
-// 17	attraction
-// 18	toilets
-// 19	townhall
-// 20	library
-// 21	education
-// 22	embassy
-// 23	telephone
-// 24	grave_yard
-// 25	bicycle_parking
-// 26	guidepost
-// 27	map
-// 28	picnic_site
-// 29	shelter
-// 30	viewpoint
-// 31	protected_area
-// 32	peak
-// 33	spring
-// 34	mine_cave
-// 35	glacier
-// 36	fire_station
-// 37	police
-// 38	doctor_dentist
-// 39	hospital_clinic
-// 40	veterinary
-// 41	buddhist
-// 42	christian
-// 43	hindu
-// 44	jewish
-// 45	muslim
-// 46	shinto
-// 47	taoist
-// 48	bar_pub
-// 49	cafe
-// 50	restaurant
-// 51	fast_food
-// 52	confectionery
-// 53	drinking_water
-// 54	veg_food
-// 55	department_store
-// 56	pharmacy
-// 57	bakery
-// 58	other
-// 59	supermarket_convenience
-// 60	sport_outdoor
-// 61	golf
-// 62	swimming
-// 63	sport_centre
-// 64	sport_pitch
-// 65	stadium
-// 66	skiing
-// 67	clubs_dancing
-// 68	gas_station
-// 69	rest_area
-// 70	parking
-// 71	car_shop_and_repair
-// 72	bus_and_tram_stop
-// 73	bus_station
-// 74	railway_station
-// 75	subway
-// 76	airport
-// 77	ferries
+func tagsToSubs(tags map[string]string) *[]int {
+	subs := make([]int, 0, 4)
+	for key, val := range tags {
+		tagVals, tagValsPresent := tagSubFolder[key]
+		if tagValsPresent {
+			tagSubs, tagSubsPresent := tagVals[val]
+			if tagSubsPresent {
+				subs = append(subs, tagSubs...)
+			}
+		}
+	}
+	return &subs
+}
+
+func tagsToFolders(tags map[string]string) *[][]int {
+	result := make([][]int, 0, 2)
+	subs := tagsToSubs(tags)
+	for _, sub := range *subs {
+		result = append(result, []int{subToRoot(sub), sub})
+	}
+
+	return &result
+}

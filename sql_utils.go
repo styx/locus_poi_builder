@@ -39,14 +39,15 @@ func bulkInserInBatches(db *sql.DB, rows map[int64]*osmpbf.Node, nodeType string
 		idx++
 		buf = append(buf, node)
 		if idx%batchSize == 0 {
-			bulkInsert(db, buf, nodeType)
+			bulkInsertPoint(db, buf, nodeType)
+
 			idx = 0
 			buf = make([]*osmpbf.Node, 0, batchSize)
 		}
 	}
 }
 
-func bulkInsert(db *sql.DB, unsavedRows []*osmpbf.Node, nodeType string) {
+func bulkInsertPoint(db *sql.DB, unsavedRows []*osmpbf.Node, nodeType string) {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatal(err)
@@ -54,6 +55,13 @@ func bulkInsert(db *sql.DB, unsavedRows []*osmpbf.Node, nodeType string) {
 
 	valueStrings := make([]string, 0, batchSize)
 	valueArgs := make([]interface{}, 0, batchSize*4)
+
+	// if hasTags(node.Tags) {
+	// 	folders := tagsToFolders(node.Tags)
+	// 	for _, arr := range *folders {
+	// 		fmt.Printf("%d\t%d %d\n", node.ID, arr[0], arr[1])
+	// 	}
+	// }
 
 	for _, row := range unsavedRows {
 		valueStrings = append(valueStrings, "(?, ?, ?, GeomFromText(?, 4326))")
