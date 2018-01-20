@@ -60,12 +60,12 @@ func tagsToSubs(tags map[string]string) *[]int {
 	return &subs
 }
 
-func tagsToFolders(tags map[string]string) *[][]int {
-	result := make([][]int, 0, 2)
+func tagsToFolders(tags map[string]string) (bool, *[]*[]int) {
+	result := make([]*[]int, 0, 2)
 	subs := tagsToSubs(tags)
 	for _, sub := range *subs {
-		result = append(result, []int{subToRoot(sub), sub})
+		result = append(result, &[]int{subToRoot(sub), sub})
 	}
 
-	return &result
+	return (len(result) > 0), &result
 }

@@ -32,17 +32,134 @@ func runQuery(db *sql.DB, query string) {
 }
 
 func bulkInserInBatches(db *sql.DB, rows map[int64]*osmpbf.Node, nodeType string) {
-	buf := make([]*osmpbf.Node, 0, batchSize)
+	bufNode := make([]*osmpbf.Node, 0, batchSize)
+	bufTags := make(map[string]string, batchSize)
+	bufFolders := make([]*[]int, 0, batchSize) // ???
 
 	idx := 0
-	for _, node := range rows {
-		idx++
-		buf = append(buf, node)
-		if idx%batchSize == 0 {
-			bulkInsertPoint(db, buf, nodeType)
+	bufTagsLen := 0
+	bufFoldersLen := 0
 
-			idx = 0
-			buf = make([]*osmpbf.Node, 0, batchSize)
+	for _, node := range rows {
+		validForInsert, folders := tagsToFolders(node.Tags)
+
+		if validForInsert {
+			idx++
+			bufNode = append(bufNode, node)
+
+			bufFoldersLen += len(*folders)
+			bufFolders = append(bufFolders, *folders...)
+
+			bufTagsLen += len(node.Tags)
+			for k, v := range node.Tags {
+				bufTags[k] = v
+			}
+
+			if idx%batchSize == 0 {
+				bulkInsertPoint(db, bufNode, nodeType)
+
+				bufNode = make([]*osmpbf.Node, 0, batchSize)
+			}
+
+			if bufFoldersLen >= batchSize {
+				bufFoldersLen = 0
+			}
+
+			if bufTagsLen >= batchSize {
+				bufTagsLen = 0
+			}
+		}
+	}
+}
+
+func bulkInserInBatchesNew(db *sql.DB, rows map[int64]*osmpbf.Node, nodeType string) {
+	bufNode := make([]*osmpbf.Node, 0, batchSize)
+
+	idx := 0
+
+	foldersCounter := 0
+	foldersValueStrings := make([]string, 0, batchSize)
+	foldersValueArgs := make([]interface{}, 0, batchSize*3)
+
+	tagsCounter := 0
+	tagsValueStrings := make([]string, 0, batchSize)
+	tagsValueArgs := make([]interface{}, 0, batchSize*3)
+
+	for _, node := range rows {
+		validForInsert, folders := tagsToFolders(node.Tags)
+
+		if validForInsert {
+			idx++
+			bufNode = append(bufNode, node)
+
+			for _, folder := range *folders {
+				foldersCounter++
+				foldersValueStrings = append(foldersValueStrings, "(?, ?, ?)")
+				foldersValueArgs = append(foldersValueArgs, idx)
+				foldersValueArgs = append(foldersValueArgs, (*folder)[0])
+				foldersValueArgs = append(foldersValueArgs, (*folder)[1])
+			}
+
+			for tag, tagVal := range node.Tags {
+				tagsCounter++
+				tagsValueStrings = append(tagsValueStrings, "(?, ?, ?)")
+				tagsValueArgs = append(tagsValueArgs, idx)
+				tagsValueArgs = append(tagsValueArgs, getTagKeyID(db, tag))
+				tagsValueArgs = append(tagsValueArgs, getTagValueID(db, tagVal))
+			}
+
+			// Store buffers: Node
+			if idx%batchSize == 0 {
+				bulkInsertPoint(db, bufNode, nodeType)
+
+				bufNode = make([]*osmpbf.Node, 0, batchSize)
+			}
+
+			// Store buffers: Folders
+			if foldersCounter >= batchSize {
+				tx, err := db.Begin()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				stmt := fmt.Sprintf(
+					"INSERT INTO Points_Root_Sub (Points_id, FoldersRoot_id, FoldersSub_id) VALUES %s",
+					strings.Join(foldersValueStrings, ","))
+
+				_, err = tx.Exec(stmt, foldersValueArgs...)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				tx.Commit()
+
+				foldersCounter = 0
+				foldersValueStrings = make([]string, 0, batchSize)
+				foldersValueArgs = make([]interface{}, 0, batchSize*3)
+			}
+
+			// Store buffers: Tags
+			if tagsCounter >= batchSize {
+				tx, err := db.Begin()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				stmt := fmt.Sprintf(
+					"INSERT INTO Points_Key_Value (Points_id, TagKeys_id, TagValues_id) VALUES %s",
+					strings.Join(tagsValueStrings, ","))
+
+				_, err = tx.Exec(stmt, tagsValueArgs...)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				tx.Commit()
+
+				tagsCounter = 0
+				tagsValueStrings = make([]string, 0, batchSize)
+				tagsValueArgs = make([]interface{}, 0, batchSize*3)
+			}
 		}
 	}
 }
@@ -55,13 +172,6 @@ func bulkInsertPoint(db *sql.DB, unsavedRows []*osmpbf.Node, nodeType string) {
 
 	valueStrings := make([]string, 0, batchSize)
 	valueArgs := make([]interface{}, 0, batchSize*4)
-
-	// if hasTags(node.Tags) {
-	// 	folders := tagsToFolders(node.Tags)
-	// 	for _, arr := range *folders {
-	// 		fmt.Printf("%d\t%d %d\n", node.ID, arr[0], arr[1])
-	// 	}
-	// }
 
 	for _, row := range unsavedRows {
 		valueStrings = append(valueStrings, "(?, ?, ?, GeomFromText(?, 4326))")
@@ -95,24 +205,52 @@ func openSpatialiteDB(dbPath string) *sql.DB {
 	return db
 }
 
-func query(db *sql.DB) {
-	q := "SELECT id, type, name, AsText(geom) FROM Points ORDER BY name DESC LIMIT 20;"
-	rows, err := db.Query(q)
+func getTagKeyID(db *sql.DB, tagName string) int64 {
+	rows, err := db.Query("SELECT id FROM TagKeys WHERE name = ? LIMIT 1;", tagName)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
 
+	var id sql.NullInt64
 	for rows.Next() {
-		var v1, v2, v3, v4 string
-		if err = rows.Scan(&v1, &v2, &v3, &v4); err != nil {
+		if err = rows.Scan(&id); err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("%s %s %s %s\n", v1, v2, v3, v4)
 	}
 
 	if err = rows.Err(); err != nil {
 		log.Fatal(err)
 	}
+
+	if id.Valid {
+		return id.Int64
+	}
+	return -1
+}
+
+func getTagValueID(db *sql.DB, tagValue string) int64 {
+	rows, err := db.Query("SELECT id FROM TagValues WHERE name = ? LIMIT 1;", tagValue)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	var id sql.NullInt64
+	for rows.Next() {
+		if err = rows.Scan(&id); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	if id.Valid {
+		return id.Int64
+	}
+	return -1
 }
