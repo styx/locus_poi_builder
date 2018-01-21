@@ -227,11 +227,17 @@ func getTagKeyID(db *sql.DB, tagName string) int64 {
 	if id.Valid {
 		return id.Int64
 	}
-	return -1
+
+	_, err = db.Exec("INSERT INTO TagKeys (name) VALUES (?)", tagName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return getTagKeyID(db, tagName)
 }
 
 func getTagValueID(db *sql.DB, tagValue string) int64 {
-	rows, err := db.Query("SELECT id FROM TagValues WHERE name = ? LIMIT 1;", tagValue)
+	rows, err := db.Query("SELECT id FROM TagValues WHERE name = ? LIMIT 1", tagValue)
 
 	if err != nil {
 		log.Fatal(err)
@@ -252,5 +258,11 @@ func getTagValueID(db *sql.DB, tagValue string) int64 {
 	if id.Valid {
 		return id.Int64
 	}
-	return -1
+
+	_, err = db.Exec("INSERT INTO TagValues (name) VALUES (?)", tagValue)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return getTagValueID(db, tagValue)
 }
