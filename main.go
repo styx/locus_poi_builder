@@ -54,7 +54,7 @@ func main() {
 }
 
 func store(db *sql.DB) {
-	bulkInserInBatchesNew(db, nodes, "P")
+	bulkInserInBatches(db, nodes, "P")
 	log.Println("Nodes: DONE")
 
 	// bulkInserInBatches(db, ways, "W")

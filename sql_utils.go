@@ -33,47 +33,6 @@ func runQuery(db *sql.DB, query string) {
 
 func bulkInserInBatches(db *sql.DB, rows map[int64]*osmpbf.Node, nodeType string) {
 	bufNode := make([]*osmpbf.Node, 0, batchSize)
-	bufTags := make(map[string]string, batchSize)
-	bufFolders := make([]*[]int, 0, batchSize) // ???
-
-	idx := 0
-	bufTagsLen := 0
-	bufFoldersLen := 0
-
-	for _, node := range rows {
-		validForInsert, folders := tagsToFolders(node.Tags)
-
-		if validForInsert {
-			idx++
-			bufNode = append(bufNode, node)
-
-			bufFoldersLen += len(*folders)
-			bufFolders = append(bufFolders, *folders...)
-
-			bufTagsLen += len(node.Tags)
-			for k, v := range node.Tags {
-				bufTags[k] = v
-			}
-
-			if idx%batchSize == 0 {
-				bulkInsertPoint(db, bufNode, nodeType)
-
-				bufNode = make([]*osmpbf.Node, 0, batchSize)
-			}
-
-			if bufFoldersLen >= batchSize {
-				bufFoldersLen = 0
-			}
-
-			if bufTagsLen >= batchSize {
-				bufTagsLen = 0
-			}
-		}
-	}
-}
-
-func bulkInserInBatchesNew(db *sql.DB, rows map[int64]*osmpbf.Node, nodeType string) {
-	bufNode := make([]*osmpbf.Node, 0, batchSize)
 
 	idx := 0
 
