@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/qedus/osmpbf"
+	"gopkg.in/cheggaaa/pb.v2"
 )
 
 var nodes map[int64]*osmpbf.Node
@@ -54,10 +55,14 @@ func main() {
 }
 
 func store(db *sql.DB) {
-	bulkInserInBatches(db, nodes, "P")
+	bar := pb.ProgressBarTemplate(`{{red "Points:"}} {{bar . "[" "\u2588" "\u25B6" " " "]" | green}} {{percent . | yellow}}`).Start(len(nodes))
+	bar.Set("prefix", "Points: ")
+
+	bulkInsertInBatches(db, nodes, "P", bar)
+	bar.Finish()
 	log.Println("Nodes: DONE")
 
-	// bulkInserInBatches(db, ways, "W")
+	// bulkInsertInBatches(db, ways, "W")
 	// log.Println("Ways: DONE")
 }
 
