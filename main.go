@@ -55,15 +55,19 @@ func main() {
 }
 
 func store(db *sql.DB) {
-	bar := pb.ProgressBarTemplate(`{{red "Points:"}} {{bar . "[" "\u2588" "\u25B6" " " "]" | green}} {{percent . | yellow}}`).Start(len(nodes))
-	bar.Set("prefix", "Points: ")
+	barTemplate := pb.ProgressBarTemplate(`{{red "Points:"}} {{bar . "[" "\u2588" "\u25B6" " " "]" | green}} {{percent . | yellow}}`)
+	bar := barTemplate.Start(len(nodes))
 
 	bulkInsertInBatches(db, nodes, "P", bar)
 	bar.Finish()
 	log.Println("Nodes: DONE")
 
-	// bulkInsertInBatches(db, ways, "W")
-	// log.Println("Ways: DONE")
+	barTemplate = pb.ProgressBarTemplate(`{{red "Ways:"}} {{bar . "[" "\u2588" "\u25B6" " " "]" | green}} {{percent . | yellow}}`)
+	bar = barTemplate.Start(len(ways))
+
+	bulkInsertInBatches(db, ways, "W", bar)
+	bar.Finish()
+	log.Println("Ways: DONE")
 }
 
 func copy(src, dst string) (int64, error) {
