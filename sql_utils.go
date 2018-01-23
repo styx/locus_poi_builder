@@ -193,12 +193,13 @@ func getTagKeyID(db *sql.DB, tagName string) int64 {
 		return id.Int64
 	}
 
-	_, err = db.Exec("INSERT INTO TagKeys (name) VALUES (?)", tagName)
+	result, err := db.Exec("INSERT INTO TagKeys (name) VALUES (?)", tagName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return getTagKeyID(db, tagName)
+	lastID, _ := result.LastInsertId()
+	return lastID
 }
 
 func getTagValueID(db *sql.DB, tagValue string) int64 {
@@ -224,10 +225,11 @@ func getTagValueID(db *sql.DB, tagValue string) int64 {
 		return id.Int64
 	}
 
-	_, err = db.Exec("INSERT INTO TagValues (name) VALUES (?)", tagValue)
+	result, err := db.Exec("INSERT INTO TagValues (name) VALUES (?)", tagValue)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return getTagValueID(db, tagValue)
+	lastID, _ := result.LastInsertId()
+	return lastID
 }
