@@ -3,14 +3,13 @@ package main
 import (
 	"database/sql"
 	"flag"
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/deckarep/golang-set"
 	"github.com/qedus/osmpbf"
 	"gopkg.in/cheggaaa/pb.v2"
 )
@@ -18,6 +17,8 @@ import (
 var nodes map[int64]*osmpbf.Node
 var ways map[int64]*osmpbf.Node
 var relations map[int64]*osmpbf.Relation
+
+var tagKeysWhiteList mapset.Set
 
 func main() {
 	flag.Parse()
@@ -34,6 +35,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	loadWhiteList()
 
 	db := openSpatialiteDB(countryName)
 	defer db.Close()
@@ -68,31 +71,4 @@ func store(db *sql.DB) {
 	bulkInsertInBatches(db, ways, "W", bar)
 	bar.Finish()
 	log.Println("Ways: DONE")
-}
-
-func copy(src, dst string) (int64, error) {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return 0, err
-	}
-	defer srcFile.Close()
-
-	srcFileStat, err := srcFile.Stat()
-	if err != nil {
-		return 0, err
-	}
-
-	if !srcFileStat.Mode().IsRegular() {
-		return 0, fmt.Errorf("%s is not a regular file", src)
-	}
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return 0, err
-	}
-
-	count, err := io.Copy(dstFile, srcFile)
-	dstFile.Close()
-
-	return count, err
 }

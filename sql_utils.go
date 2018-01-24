@@ -45,12 +45,9 @@ func bulkInsertInBatches(db *sql.DB, rows map[int64]*osmpbf.Node, nodeType strin
 	tagsValueStrings := make([]string, 0, batchSize)
 	tagsValueArgs := make([]interface{}, 0, batchSize*3)
 
-	// i := 0
 	for _, node := range rows {
-		// i++
-		// if i%1000 == 0 {
 		progressBar.Add(1)
-		// }
+
 		validForInsert, folders := tagsToFolders(node.Tags)
 
 		if validForInsert {
@@ -66,11 +63,13 @@ func bulkInsertInBatches(db *sql.DB, rows map[int64]*osmpbf.Node, nodeType strin
 			}
 
 			for tag, tagVal := range node.Tags {
-				tagsCounter++
-				tagsValueStrings = append(tagsValueStrings, "(?, ?, ?)")
-				tagsValueArgs = append(tagsValueArgs, idx)
-				tagsValueArgs = append(tagsValueArgs, getTagKeyID(db, tag))
-				tagsValueArgs = append(tagsValueArgs, getTagValueID(db, tagVal))
+				if tagKeysWhiteList.Contains(tag) {
+					tagsCounter++
+					tagsValueStrings = append(tagsValueStrings, "(?, ?, ?)")
+					tagsValueArgs = append(tagsValueArgs, idx)
+					tagsValueArgs = append(tagsValueArgs, getTagKeyID(db, tag))
+					tagsValueArgs = append(tagsValueArgs, getTagValueID(db, tagVal))
+				}
 			}
 
 			// Store buffers: Node
