@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,25 +22,21 @@ var relations map[int64]*osmpbf.Relation
 var tagKeysWhiteList mapset.Set
 
 func main() {
+	showBlacklistedTags := flag.Bool("show-blacklisted-tags", false, "Shows tags found in PBF but not listed in "+tagKeysWhiteListFileName)
+	flag.BoolVar(showBlacklistedTags, "sbt", false, "Shows tags found in PBF but not listed in "+tagKeysWhiteListFileName)
+
 	flag.Parse()
 	args := flag.Args()
 
 	if len(args) < 1 {
+		flag.PrintDefaults()
 		log.Fatal("Invalid args, you must specify a PBF file")
 	}
 
 	countryName := "./" + strings.SplitN(filepath.Base(args[0]), "-", 2)[0] + ".osm.db"
 	log.Println(countryName)
 
-	_, err := copy("./template.osm.db", countryName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	loadWhiteList()
-
-	db := openSpatialiteDB(countryName)
-	defer db.Close()
 
 	f, err := os.Open(args[0])
 	if err != nil {
@@ -54,6 +51,19 @@ func main() {
 	}
 
 	processPbf(decoder)
+
+	if *showBlacklistedTags {
+		printBlacklistedTags()
+		os.Exit(0)
+	}
+
+	_, err = copy("./template.osm.db", countryName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db := openSpatialiteDB(countryName)
+	defer db.Close()
 	store(db)
 }
 
@@ -71,4 +81,33 @@ func store(db *sql.DB) {
 	bulkInsertInBatches(db, ways, "W", bar)
 	bar.Finish()
 	log.Println("Ways: DONE")
+}
+
+func printBlacklistedTags() {
+	tagKeysBlackList := mapset.NewSet()
+
+	for _, node := range nodes {
+		validForInsert, _ := tagsToFolders(node.Tags)
+
+		if validForInsert {
+			for tagKey := range node.Tags {
+				if !tagKeysWhiteList.Contains(tagKey) {
+					tagKeysBlackList.Add(tagKey)
+				}
+			}
+		}
+	}
+
+	for _, node := range ways {
+		for tagKey := range node.Tags {
+			if !tagKeysWhiteList.Contains(tagKey) {
+				tagKeysBlackList.Add(tagKey)
+			}
+		}
+	}
+
+	it := tagKeysBlackList.Iterator()
+	for tagName := range it.C {
+		fmt.Println(tagName.(string))
+	}
 }
