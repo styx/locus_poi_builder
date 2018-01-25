@@ -5,6 +5,7 @@ alt_name
 amenity
 artist_name
 atm
+attraction
 bicycle
 board_type
 boundary
