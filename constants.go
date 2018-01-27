@@ -675,5 +675,5 @@ var tagSubFolder = map[string]map[string][]int{
 		"swing_carousel": {17},
 		"train": {17},
 		"water_slide": {17},
-	}
+	},
 }
