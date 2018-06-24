@@ -1,0 +1,2 @@
+# Drop not required data and convert everything to nodes
+./osmconvert ./bayern-latest.osm.pbf --all-to-nodes --drop-author --drop-version --max-objects=100000000 -b=11.36,48,11.79,48.27 -o=munich-latest.osm.pbf

@@ -1,2 +1,7 @@
 locus_poi_builder
 *.db
+*.pbf
+*.osm
+*.map
+osmconvert
+osmconvert64
