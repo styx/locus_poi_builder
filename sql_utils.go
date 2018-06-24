@@ -13,6 +13,8 @@ import (
 
 const batchSize = 200
 
+var valueStrings [batchSize]string
+
 func runQuery(db *sql.DB, query string) {
 	tx, err := db.Begin()
 	if err != nil {
@@ -44,6 +46,10 @@ func bulkInsertInBatches(db *sql.DB, rows map[int64]*osmpbf.Node, nodeType strin
 	tagsCounter := 0
 	tagsValueStrings := make([]string, 0, batchSize)
 	tagsValueArgs := make([]interface{}, 0, batchSize*3)
+
+	for i := 0; i < batchSize; i++ {
+		valueStrings[i] = "(?, ?, ?, GeomFromText(?, 4326))"
+	}
 
 	for _, node := range rows {
 		progressBar.Add(1)
@@ -134,18 +140,19 @@ func bulkInsertPoint(db *sql.DB, unsavedRows []*osmpbf.Node, nodeType string) {
 		log.Fatal(err)
 	}
 
-	valueStrings := make([]string, 0, batchSize)
 	valueArgs := make([]interface{}, 0, batchSize*4)
 
 	for _, row := range unsavedRows {
-		valueStrings = append(valueStrings, "(?, ?, ?, GeomFromText(?, 4326))")
 		valueArgs = append(valueArgs, row.ID)
 		valueArgs = append(valueArgs, nodeType)
 		valueArgs = append(valueArgs, row.Tags["name"])
 		valueArgs = append(valueArgs, fmt.Sprintf("POINT(%.6f %.6f)", row.Lon, row.Lat))
 	}
 
-	stmt := fmt.Sprintf("INSERT INTO Points (id, type, name, geom) VALUES %s", strings.Join(valueStrings, ","))
+	stmt := fmt.Sprintf(
+		"INSERT INTO Points (id, type, name, geom) VALUES %s",
+		strings.Join(valueStrings[0:len(unsavedRows)-1], ","),
+	)
 
 	_, err = tx.Exec(stmt, valueArgs...)
 	if err != nil {
